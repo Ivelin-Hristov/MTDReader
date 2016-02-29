@@ -8,6 +8,7 @@
     using System.Threading.Tasks;
     using System.Xml;
     using System.IO;
+
     public class Table
     {
 
@@ -23,7 +24,7 @@
         private List<string> annotations = new List<string>();
         private bool colOrientation = true;
 
-        
+ 
 
         public string TableName
         {
@@ -133,6 +134,7 @@
             this.TopAxis.Clear();
             this.CellItemsInfo.Clear();
             this.CellMatrix.Clear();
+            this.Annotations.Clear();
        }
 
     }
@@ -142,29 +144,42 @@
 
         private bool writeToSideAxis = true;
         private bool isInTables = false;
-
         private XmlReader xmlDoc;
-
         private Table table = new Table();
-
+   
         public XmlReader XmlDoc
         {
             get { return this.xmlDoc; }
             set { this.xmlDoc = value; }
         }
-
-        public void LoadMTD(string fileName)
+        public Table Table
         {
-            this.xmlDoc = XmlReader.Create(fileName);
-         }
+            get
+            {
+                return this.table;
+            }
 
-        public void Close()
+            set
+            {
+                this.table = value;
+            }
+        }
+        public bool IsInTables
         {
-            this.xmlDoc.Dispose();
+            get
+            {
+                return this.isInTables;
+            }
 
+            set
+            {
+                this.isInTables = value;
+            }
         }
 
-        private bool nodeEval(string nodeName, XmlNodeType nodeType, bool additionalExprssion = true)
+
+
+        private bool evalNode(string nodeName, XmlNodeType nodeType, bool additionalExprssion = true)
         {
             if (this.XmlDoc.Name == nodeName && this.XmlDoc.NodeType == nodeType && additionalExprssion)
             {
@@ -174,65 +189,75 @@
             {
                 return false;
             }
-            
+
         }
 
-        public Table MoveToNextTable()
+        public void LoadMTD(string fileName)
         {
-            this.table.Clear();
+            this.xmlDoc = XmlReader.Create(fileName);
+         }  
+        public void Close()
+        {
+            this.xmlDoc.Dispose();
+
+        }
+        public void MoveToNextTable()
+        {
+            this.Table.Clear();
             this.writeToSideAxis = true;
             while (this.XmlDoc.Read())
             {
-                //MOVE TO FIRST TABLE
-                if (this.nodeEval("Table",XmlNodeType.Element))
+                //MOVE TO FIRST TABLE - CONTINUE IF BEFORE THAT;
+                if (this.evalNode("Tables",XmlNodeType.Element))
                 {
-                    this.isInTables = true;
+                    this.IsInTables = true;
                 }
 
-                //REMOVE AFTER LAST TABLE
-                if (this.nodeEval("Table",XmlNodeType.EndElement))
-                {
-                    this.isInTables = false;
-                }
-
-                //BREAK IF NOT TO FIRST
-                if (!this.isInTables)
+                //BREAK IF NOT YET FIRST
+                if (!this.IsInTables)
                 {
                     continue;
                 }
 
-                //TABLE
-                if (this.nodeEval("Table", XmlNodeType.Element))
+                //BREAK AFTER LAST TABLE
+                if (this.evalNode("Tables",XmlNodeType.EndElement))
                 {
-                    table.TableName = this.XmlDoc.GetAttribute("Name");
-                    table.TableLabel = this.XmlDoc.GetAttribute("Description");
+                    this.IsInTables = false;
+                    break;
                 }
 
-                if (this.nodeEval("Axis", XmlNodeType.Element, this.XmlDoc.GetAttribute("Name") == "Top"))
+                //TABLE
+                if (this.evalNode("Table", XmlNodeType.Element))
+                {
+                    Table.TableName = this.XmlDoc.GetAttribute("Name");
+                    Table.TableLabel = this.XmlDoc.GetAttribute("Description");
+                }
+
+                if (this.evalNode("Axis", XmlNodeType.Element, this.XmlDoc.GetAttribute("Name") == "Top"))
                 {
                     this.writeToSideAxis = false;
                 }
 
                 //GOTO SIDE AXIS
-                if (this.nodeEval("Element", XmlNodeType.Element, this.writeToSideAxis))
+                if (this.evalNode("Element", XmlNodeType.Element, this.writeToSideAxis))
                 {
-                    table.SideAxis.Add(this.XmlDoc.GetAttribute("Label"));
+                    Table.SideAxis.Add(this.XmlDoc.GetAttribute("Label"));
                 }
 
                 //GOTO TOP AXIS
-                if (this.nodeEval("Element", XmlNodeType.Element, !this.writeToSideAxis))
+                if (this.evalNode("Element", XmlNodeType.Element, !this.writeToSideAxis))
                 {
-                    table.TopAxis.Add(this.XmlDoc.GetAttribute("Label"));
+                    Table.TopAxis.Add(this.XmlDoc.GetAttribute("Label"));
                 }
 
                 //GOTO CELLITEMS
-                if (this.nodeEval("CellItem",XmlNodeType.Element))
+                if (this.evalNode("CellItem",XmlNodeType.Element))
                 {
-                    table.CellItemsInfo.Add(this.XmlDoc.GetAttribute("Type"));
+                    Table.CellItemsInfo.Add(this.XmlDoc.GetAttribute("Type"));
                 }
 
                 //GOTO ROWS
-                if (this.nodeEval("row", XmlNodeType.Element))
+                if (this.evalNode("row", XmlNodeType.Element))
                 {
                     List<string> row = new List<string>();
                     //CELL MATRIX [ROW,COL]
@@ -240,22 +265,21 @@
                     {
                         row.Add(this.XmlDoc.GetAttribute(col));
                     }
-                    table.CellMatrix.Add(row);
+                    Table.CellMatrix.Add(row);
                 }
 
                 //GOTO ANNOTATIONS
-                if (this.nodeEval("Annotation", XmlNodeType.Element))
+                if (this.evalNode("Annotation", XmlNodeType.Element))
                 {
-                    table.Annotations.Add(this.XmlDoc.GetAttribute("Text"));
+                    Table.Annotations.Add(this.XmlDoc.GetAttribute("Text"));
                 }
 
                 //RETURN TABLE (LEVEL IS THE LAST TAG IN TABLE)
-                if (this.nodeEval("Level", XmlNodeType.Element))
+                if (this.evalNode("Table", XmlNodeType.EndElement))
                 {
                     break;
                 }     
             }
-            return table;
         }
     }
 
