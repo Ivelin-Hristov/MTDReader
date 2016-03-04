@@ -1,5 +1,4 @@
-﻿
-namespace MTDReader
+﻿namespace MTDReader
 {
 
     using System;
@@ -11,7 +10,7 @@ namespace MTDReader
     using System.IO;
     using Models;
     using System.Windows.Forms;
-
+    using TableBuilder;
 
     class Program
     {
@@ -29,23 +28,21 @@ namespace MTDReader
             fileSelectPopUp.RestoreDirectory = true;
             if (fileSelectPopUp.ShowDialog() == DialogResult.OK)
             {
-                string mtdPath = fileSelectPopUp.FileName;
-                var parser = new XMLParser();
-                    parser.LoadMTD(mtdPath);
-                    parser.MoveToNextTable();
-            
-                while (parser.IsInTables)
-                {
-                    Console.WriteLine(parser.Table.TableName);
-                    Console.WriteLine(parser.Table.TableLabel);
-                    Console.WriteLine(string.Join("\t", parser.Table.CellItemsInfo));
-                    Console.WriteLine(string.Join("\n", parser.Table.Annotations));
-                    Console.WriteLine("##########################################################");
 
-                    parser.MoveToNextTable();
-                }  
-                parser.Close();
-                Console.ReadLine();
+                string mtdPath = fileSelectPopUp.FileName;
+                var reader =  new XMLParser();
+                var builder = new CsvBuilder(mtdPath + ".csv");
+
+                reader.LoadMTD(mtdPath);
+
+                reader.MoveToNextTable();                             
+                while (reader.IsInTables)
+                {
+                    builder.BuildTable(reader.Table);
+                    reader.MoveToNextTable();
+                }
+             
+                reader.Close();
             }
         }
     }
